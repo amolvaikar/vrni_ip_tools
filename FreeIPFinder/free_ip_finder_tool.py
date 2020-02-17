@@ -17,31 +17,46 @@ def get_existing_ips(url, user_id, password, subnet):
 			   '","vIDMURL":"","redirectURL":"","authenticationDomains":{"0":{"domainType":"LOCAL_DOMAIN","domain":"localdomain","redirectUrl":""}},'+\
 			   '"currentDomain":0,"domain":"localdomain","nDomains":1,"serverTimestamp":false,"loginFieldPlaceHolder":"Username"}'
 
-		# Instead of requests.get(), you'll use session.get()
-		response = session.post(url+"/api/auth/login", data=data, verify=False, headers={'content-type':'application/json', 'accept':'application/json'})
-		#print response
-		loaded_json = json.loads(response.content)
-		session.headers["x-vrni-csrf-token"] = loaded_json["csrfToken"]
+		try:
+			response = session.post(url+"/api/auth/login", data=data, verify=False, headers={'content-type':'application/json', 'accept':'application/json'})
+			#print response
+			loaded_json = json.loads(response.content)
+			if loaded_json["responseMessage"] == "AuthenticationException":
+				print "Failed to connect to " + url + " owing to authentication failure, please check userid and password"
+				return None
 
-		start_idx = 0
-		ask_length = 50
-		ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20like%20" + str(subnet) + \
-						  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) +\
-						  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
-		response = session.get(url+ip_search_query, verify=False)
-		#print response
-		found_ips = json.loads(response.content)
-		while len(found_ips['resultList']) > 0:
-			for result in found_ips['resultList']:
-				existing_ip_set.add(result['searchContext']['name'])
-			current_len = len(found_ips['resultList'])
-			start_idx += current_len
+			session.headers["x-vrni-csrf-token"] = loaded_json["csrfToken"]
+
+			start_idx = 0
+			ask_length = 50
 			ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20like%20" + str(subnet) + \
-							  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) + \
+							  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) +\
 							  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
-			response = session.get(url + ip_search_query, verify=False)
+			response = session.get(url+ip_search_query, verify=False)
+			#print response
 			found_ips = json.loads(response.content)
+			while len(found_ips['resultList']) > 0:
+				for result in found_ips['resultList']:
+					existing_ip_set.add(result['searchContext']['name'])
+				current_len = len(found_ips['resultList'])
+				start_idx += current_len
+				ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20like%20" + str(subnet) + \
+								  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) + \
+								  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+				response = session.get(url + ip_search_query, verify=False)
+				found_ips = json.loads(response.content)
+		except requests.exceptions.ConnectionError as connection_exception:
+			print "Failed to connect to " + url
+			print connection_exception.message
+			return None
+
 	return existing_ip_set
+
+def check_options(options):
+	if "/" not in options.subnet:
+		print "Incorrect format for subnet parameter. Be sure to include the length. Sample format: 192.168.21.0/24"
+		return False
+	return True
 
 if __name__ == '__main__':
 
@@ -67,7 +82,10 @@ if __name__ == '__main__':
 		parser.print_help()
 		print "Insufficient arguments"
 		sys.exit(1)
-	
+
+	if not check_options(options):
+		sys.exit(1)
+
 	url = "https://" + options.server
 	ip_argument = options.subnet
 	user_id = options.uid
@@ -77,6 +95,9 @@ if __name__ == '__main__':
 	arg_subnet = subnet.split("/")[0]
 	arg_subnet = arg_subnet.replace(".0", ".*")
 	existing_ip_set = get_existing_ips(url, user_id, password, arg_subnet)
+
+	if existing_ip_set is None:
+		sys.exit(1)
 
 	theoretical_ip_set = ipaddress.IPv4Network(unicode(subnet, "utf-8"))
 
