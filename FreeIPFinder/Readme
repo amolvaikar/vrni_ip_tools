@@ -1,0 +1,8 @@
+Tool to find free IP addresses in a subnet with help of vRNI since vRNI already has visibility in your environment.
+e.g. usage:
+python free_ip_finder_tool.py -d 10.79.42.40 -u admin@local -p admin -s 192.168.21.0/25
+
+Here, -d is the vRNI platform IP address/FQDN
+      -u is vRNI user id
+      -p is vRNI user password
+      -s is the subnet CIDR that you want to search in
