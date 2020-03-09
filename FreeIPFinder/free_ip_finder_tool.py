@@ -29,7 +29,7 @@ def get_existing_ips(url, user_id, password, subnet):
 
 			start_idx = 0
 			ask_length = 50
-			ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20like%20" + str(subnet) + \
+			ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20%3D%20" + str(subnet) + \
 							  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) +\
 							  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
 			response = session.get(url+ip_search_query, verify=False)
@@ -40,7 +40,7 @@ def get_existing_ips(url, user_id, password, subnet):
 					existing_ip_set.add(result['searchContext']['name'])
 				current_len = len(found_ips['resultList'])
 				start_idx += current_len
-				ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20like%20" + str(subnet) + \
+				ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20%3D%20" + str(subnet) + \
 								  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) + \
 								  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
 				response = session.get(url + ip_search_query, verify=False)
@@ -92,9 +92,7 @@ if __name__ == '__main__':
 	password = options.password
 	subnet = options.subnet
 
-	arg_subnet = subnet.split("/")[0]
-	arg_subnet = arg_subnet.replace(".0", ".*")
-	existing_ip_set = get_existing_ips(url, user_id, password, arg_subnet)
+	existing_ip_set = get_existing_ips(url, user_id, password, subnet)
 
 	if existing_ip_set is None:
 		sys.exit(1)
@@ -105,9 +103,14 @@ if __name__ == '__main__':
 	# print theoretical_ip_set
 
 	print "Free IP addresses in given subnet:"
+	free_ips = 0
+	total_ips = 0
 	for tip in theoretical_ip_set:
+		total_ips += 1
 		if not tip.compressed in existing_ip_set:
 			print tip
+			free_ips += 1
 
+	print "Found", free_ips, "free IPs, out of", total_ips, "IPs in", subnet
 
 
