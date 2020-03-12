@@ -65,6 +65,7 @@ def get_all_suitable_vms(session):
 	response = session.get(url+vm_search_query, verify=False)
 	print response
 	found_vms = json.loads(response.content)
+	vm_count = 0
 	while len(found_vms['resultList']) > 0:
 		for result in found_vms['resultList']:
 			vm_l2 = result['searchContext']['extraPropMap']['layer2Networks.name'][0]
@@ -75,6 +76,7 @@ def get_all_suitable_vms(session):
 				l2_to_vms_map.get(vm_l2).append(vm_name_plus_mk)
 			else:
 				l2_to_vms_map[vm_l2] = [vm_name_plus_mk]
+			vm_count += 1
 
 		current_len = len(found_vms['resultList'])
 		start_idx += current_len
@@ -83,6 +85,7 @@ def get_all_suitable_vms(session):
 		                  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=true"
 		response = session.get(url + vm_search_query, verify=False)
 		found_vms = json.loads(response.content)
+	print "Found " + str(vm_count) + " VMs across " + str(len(l2_to_vms_map)) + " L2 networks"
 	return l2_to_vms_map
 
 vm_pairs_list = []
@@ -95,6 +98,9 @@ def check_vm_to_vm_path(vm_pair, valid_vm_to_vm_paths, session):
 	dest_vm_name, dest_vm_mk = dest_vm_name_mk.split('+')
 	source_vm_mk_encoded = urllib.quote_plus(source_vm_mk)
 	dest_vm_mk_encoded = urllib.quote_plus(dest_vm_mk)
+
+	#print "Trying to find path between " + source_vm_name + " and " + dest_vm_name
+
 	vm_to_vm_request = "/api/config/graph?graphLevel=L2_UNDERLAY_OVERLAY&graphType=VM_TO_VM_TOPOLOGY2&listOfObjects=" + source_vm_mk_encoded + "&listOfObjects=" + dest_vm_mk_encoded + "&includeUnderlay=true&time=" + str(long(time.time() * 1000))
 	response = session.get(url + vm_to_vm_request, verify=False)
 	found_vm_paths = json.loads(response.content)
@@ -136,7 +142,9 @@ def get_valid_vm_to_vm_paths(l2_to_vms_map, session):
 	for vm_pair in vm_pairs_list:
 		check_vm_to_vm_path(vm_pair, valid_vm_to_vm_paths, session)
 
-	print "Finding vm to vm path between " + first_set_of_vms[0] + "and " + second_set_of_vms[0]
+	if len(valid_vm_to_vm_paths) == 0:
+		print "Failed to find any vm pairs with valid path"
+
 	return valid_vm_to_vm_paths
 
 if __name__ == '__main__':
