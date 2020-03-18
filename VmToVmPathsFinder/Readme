@@ -1,0 +1,40 @@
+On demo or POC systems, it is at times a bit difficult to find VMs that can be used to demo the VM to VM path.
+Hence we have this script that should help find out the possible candidates for VM to VM path.
+
+How to run this script:
+
+python vm_to_vm_path_finder.py -d <IP/FQDN of platform> -u <AD or local user id used in vrni> -p <password>
+
+e.g.:
+python vm_to_vm_path_finder.py -d 10.79.41.35 -u admin@local -p admin
+
+Sample output at the time of writing this Readme:
+<Response [200]>
+Found 15 VMs across 13 L2 networks
+Please wait...
+Path from VM app_vm2 to VM db_vm2 could work, but only in virtual network
+Path from VM app_vm2 to VM Sumant-vm-1 could have physical routers
+Path from VM app_vm2 to VM Sumant-vm-2 could have physical routers
+Path from VM app_vm2 to VM AirtelVm1 could have physical routers, but only a **PARTIAL** path
+Path from VM app_vm2 to VM web_vm2 could work, but only in virtual network
+Path from VM app_vm2 to VM VM-1-host24-n5k-asa could have physical routers
+Path from VM app_vm2 to VM Ubuntu-7GB could have physical routers, but only a **PARTIAL** path
+Path from VM app_vm2 to VM VM-3-host24-n5k-asa could have physical routers
+Path from VM app_vm2 to VM VM-2-host24-n5k-asa could have physical routers
+Path from VM app_vm2 to VM db_vm1 could have physical routers
+...
+
+Logic used in the script:
+
+1. Connect to vrni platform
+2. Find all VM name, model-key & L2 id such that those VMs satisfy all the basic criteria needed for VM to VM path, like
+   being powered on, having right VM Tools, having a default gateway etc.
+3. Group the VMs on the basis of VLAN/L2 that they are connect to - this is done because there is not much
+   fun in showing VM to VM path for VMs on same VLAN.
+4. Pick a VM from one VLAN, another VM from a different VLAN, ask vrni to find out the VM to VM path for those VMs.
+   If the path exists, and if it has any physical devices in the path, print out the VM names along with appropriate message.
+
+Currently this happens sequentially (i.e. in single thread)
+If/When time permits, I plan to do step 4 using a thread pool so that we can get the results a bit faster.
+
+Feel free to reach out to me/Martijn if you want any improvements to the script based on your field/practical experience.
