@@ -113,13 +113,13 @@ def check_vm_to_vm_path(vm_pair, valid_vm_to_vm_paths, session):
 				if path_node['id'].split(":")[1] == "96":
 					if len(path_node['data']['config']['subType']) > 0 and path_node['data']['config']['subType'][0] not in (1102, 1103):
 						if paths[0]['partial'] == True:
-							print "Path from " + source_vm_name + " to " + dest_vm_name + " could have physical routers, but only a **PARTIAL** path"
+							print "Path from VM " + source_vm_name + " to VM " + dest_vm_name + " could have physical routers, but only a **PARTIAL** path"
 						else:
-							print "Path from " + source_vm_name + " to " + dest_vm_name + " could have physical routers"
+							print "Path from VM " + source_vm_name + " to VM " + dest_vm_name + " could have physical routers"
 						found_physical = True
 						break
 			if not found_physical:
-				print "Path from " + source_vm_name + " to " + dest_vm_name + " could work, but only in virtual network"
+				print "Path from VM " + source_vm_name + " to VM " + dest_vm_name + " could work, but only in virtual network"
 			valid_vm_to_vm_paths.add((source_vm_name, dest_vm_name))
 		except Exception:
 			pass
@@ -127,6 +127,7 @@ def check_vm_to_vm_path(vm_pair, valid_vm_to_vm_paths, session):
 	#print found_vm_paths
 
 def get_valid_vm_to_vm_paths(l2_to_vms_map, session):
+	print "Please wait..."
 	valid_vm_to_vm_paths = set()
 	num_vlans = len(l2_to_vms_map)
 	all_keys = l2_to_vms_map.keys()
@@ -184,4 +185,4 @@ if __name__ == '__main__':
 
 	valid_vm_to_vm_paths = get_valid_vm_to_vm_paths(l2_to_vms_map, session)
 
-	print l2_to_vms_map
+	print valid_vm_to_vm_paths
