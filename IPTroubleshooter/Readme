@@ -1,0 +1,8 @@
+Tool for helping a layman troubleshoot why a particular IP is not reachable.
+
+When an IP is not reachable, what are the possible issues:
+
+1. IP is not assigned to anyone.
+2. IP is assigned to a VM or interface (on switch etc.), but that entity is powered off.
+3. The interface is not connected
+4. TBD
