@@ -4,10 +4,16 @@ import sys
 import requests
 import json
 from optparse import OptionParser
-import ipaddress
+import urllib
 import urllib3
+
+OT = "ot"
+
+STATUS = "status"
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+start_idx = 0
+ask_length = 50
 
 def open_vrni_session(url, user_id, password):
 	try:
@@ -47,23 +53,112 @@ def open_vrni_session(url, user_id, password):
 
 
 
+def checkIfIpExistsInVrni(session, ip_argument):
+	# Check if IP is assigned to a VM
+	search_string = "VM where IP Address = '" + ip_argument + "'"
+	search_string = urllib.quote_plus(search_string)
+	ip_search_query = "/api/search/query?search_string=" + search_string + \
+					  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(
+		start_idx) + \
+					  "&maxItemCount=" + str(
+		ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+	response = session.get(url + ip_search_query, verify=False)
+	found_ips = json.loads(response.content)
+	if len(found_ips['resultList']) == 0:
+		print "IP is not assigned to any VM known to vRNI, checking next"
+	else:
+		print "IP " + ip_argument + " is assigned to a VM " + response.content
+		return {STATUS:True, OT: "VM", "objs":found_ips}
+
+	# Check if IP is assigned to a RI
+	search_string = "Router Interface where IP Address = '" + ip_argument + "'"
+	search_string = urllib.quote_plus(search_string)
+	ip_search_query = "/api/search/query?search_string=" + search_string + \
+					  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(
+		start_idx) + \
+					  "&maxItemCount=" + str(
+		ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+	response = session.get(url + ip_search_query, verify=False)
+	found_ips = json.loads(response.content)
+	if len(found_ips['resultList']) == 0:
+		print "IP is not assigned to any Router Interface known to vRNI, checking next"
+	else:
+		print "IP " + ip_argument + " is assigned to a Router Interface " + response.content
+		return {STATUS:True, OT: "ROUTER_INTERFACE", "objs":found_ips}
+
+	# If not VM, and not any router interface, check if this is IP of any load balancer
+	search_string = "virtual server where destination ip = '" + ip_argument + "'"
+	search_string = urllib.quote_plus(search_string)
+	ip_search_query = "/api/search/query?search_string=" + search_string + \
+					  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(
+		start_idx) + \
+					  "&maxItemCount=" + str(
+		ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+	response = session.get(url + ip_search_query, verify=False)
+	found_ips = json.loads(response.content)
+	if len(found_ips['resultList']) == 0:
+		print "IP is not assigned to any virtual server known to vRNI, checking next"
+	else:
+		print "IP " + ip_argument + " is assigned to a Router Interface " + response.content
+		return {STATUS:True, OT: "VIRTUAL_SERVER", "objs":found_ips}
+
+
+	# If not VM, not any router interface and not a load balancer, check if this is IP of any data source
+	search_string = "Manager where FQDN = '{}' or name = '{}' or IP Address = '{}'".format(ip_argument, ip_argument, ip_argument)
+	search_string = urllib.quote_plus(search_string)
+	ip_search_query = "/api/search/query?search_string=" + search_string + \
+					  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(
+		start_idx) + \
+					  "&maxItemCount=" + str(
+		ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+	response = session.get(url + ip_search_query, verify=False)
+	found_ips = json.loads(response.content)
+	if len(found_ips['resultList']) == 0:
+		print "IP is not assigned to any manager known to vRNI, checking next"
+	else:
+		print "IP " + ip_argument + " is assigned to a Manager " + response.content
+		return {STATUS:True, OT: "MANAGER", "objs":found_ips}
+
+
+	# Last ditch effort, check endpoint ip entities
+	search_string = "ip endpoint where ip address = '{}'".format(ip_argument)
+	search_string = urllib.quote_plus(search_string)
+	ip_search_query = "/api/search/query?search_string=" + search_string + \
+					  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(
+		start_idx) + \
+					  "&maxItemCount=" + str(
+		ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
+	response = session.get(url + ip_search_query, verify=False)
+	found_ips = json.loads(response.content)
+	if len(found_ips['resultList']) == 0:
+		print "IP is not assigned to any ip endpoint known to vRNI"
+	else:
+		print "IP " + ip_argument + " is assigned to an IP Endpoint " + response.content
+		return {STATUS:True, OT: "IP_ENDPOINT", "objs":found_ips}
+
+	print "Failed to find IP exact match in vRNI"
+	return {STATUS: False, OT: "", "objs": None}
+
+def checkIfObjectIsAlive(session, ip_argument, ret_dict):
+	if ret_dict[OT] == "VM":
+		print "Checking for VM"
+
+	elif ret_dict[OT] == "ROUTER_INTERFACE":
+		print "Checking RI"
+
 def ip_checking_wizard(session, ip_argument):
 	try:
 		# Step 1 - Check if IP is assigned to some entity
-		start_idx = 0
-		ask_length = 50
-		ip_search_query = "/api/search/query?searchString=IP%20Endpoint%20where%20IP%20Address%20%3D%20" + str(ip_argument) + \
-						  "&includeObjects=false&includeFacets=true&includeMetrics=false&includeEvents=false&startIndex=" + str(start_idx) +\
-						  "&maxItemCount=" + str(ask_length) + "&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false"
-		response = session.get(url + ip_search_query, verify=False)
-		found_ips = json.loads(response.content)
-		if len(found_ips['resultList']) == 0:
-			print "IP is not assigned to any entity known to vRNI"
-			return
-		else:
-			print "IP " + ip_argument + " is assigned to " + response.content + " checking if it is online"
+		ret_dict = checkIfIpExistsInVrni(session, ip_argument)
 
 		# Step 2 - Check if the VM/Switch
+		# If the IP was found, then depending on what object the IP was found on, check if the entity is up and alive
+		if ret_dict[STATUS]:
+			#IP was found, so now do object specific validation
+			ret_dict = checkIfObjectIsAlive(session, ip_argument, ret_dict)
+		else:
+			print "IP exact match was not found, so need to do subnet based lookups"
+
 	except requests.exceptions.ConnectionError as connection_exception:
 		print "Failed to connect to " + url
 		print connection_exception.message
