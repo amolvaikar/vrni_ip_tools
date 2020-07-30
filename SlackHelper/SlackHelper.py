@@ -57,14 +57,14 @@ def getEvents(session):
 	#print response
 	found_events = json.loads(response.content)
 	#print found_events
-	requests = list()
+	objRequests = list()
 	for event in found_events['resultList']:
 		mk = event['searchContext']['modelKey']
 		atTime = event['searchContext']['version']['lastModifiedTs']
-		requests.append({"modelKey":mk, "time":atTime})
+		objRequests.append({"modelKey":mk, "time":atTime})
 	#print requests
 	object_fetch_query = "/api/config/objects"
-	response = session.post(url+object_fetch_query, verify=False, data=json.dumps({"requests":requests}), headers={'content-type':'application/json', 'accept':'application/json'})
+	response = session.post(url+object_fetch_query, verify=False, data=json.dumps({"requests":objRequests}), headers={'content-type':'application/json', 'accept':'application/json'})
 	objectsResponse = json.loads(response.content)
 	for data in objectsResponse['data']:
 		eventData = data['value']
@@ -75,6 +75,20 @@ def getEvents(session):
 			if aentity['name'] is not None:
 				involvedEntities += aentity['name'] + " "
 		print "Event Info:", eventName, eventMessage, involvedEntities, "\n"
+		markdownObj = dict()
+		markdownObj['type'] = "mrkdwn"
+		markdownObj['text'] = "Event Info:" + eventName + "\n" + eventMessage + "\n" + involvedEntities
+		sectionObject = dict()
+		sectionObject["text"] = markdownObj
+		sectionObject["type"] = "section"
+		blockslist = list()
+		blockslist.append(sectionObject)
+		finalobject = dict()
+		finalobject['blocks'] = blockslist
+		slacksession = requests.Session()
+		responseSlack = slacksession.post("https://hooks.slack.com/services/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", data=json.dumps(finalobject), verify=False,
+					 headers={'content-type': 'application/json', 'accept': 'application/json'})
+		print responseSlack
 
 
 if __name__ == '__main__':
