@@ -9,7 +9,6 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import time
 
-
 def check_options(options):
 	return True
 
@@ -49,12 +48,21 @@ def open_vrni_session(url, user_id, password):
 		print connection_exception.message
 	return None
 
-def getEvents(session):
-	fromTime = 1596102869816
-	toTime = 1596106740000
-	event_search_query = "/api/search/query?searchString=open+problems&timestamp=1596106948788&timeRangeString=+between+timestamp+1596102869816+and+timestamp+1596106740000&includeObjects=false&includeFacets=false&includeMetrics=false&includeEvents=false&startIndex=0&maxItemCount=100&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false&fetchQueryTelemetry=true&appDistributionEnabled=false&appletDistributionEnabled=false"
+def sendEvents(session, fromTime=None, toTime=None):
+	if fromTime is None:
+		#if user has not given time, we will ask for events from last 5 minutes
+		toTime = int(round(time.time() * 1000))
+		fromTime = toTime - (5 * 60 * 1000)
+
+	# Get events modelKey list of last 5 minutes
+	event_search_query = "/api/search/query?searchString=open+problems&timestamp=1596106948788&timeRangeString=+between+timestamp+" + str(fromTime) + "+and+timestamp+" + str(toTime) + \
+						 "&includeObjects=false&includeFacets=false&includeMetrics=false&includeEvents=false&startIndex=0&maxItemCount=100&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false&fetchQueryTelemetry=true&appDistributionEnabled=false&appletDistributionEnabled=false"
+
 	response = session.get(url + event_search_query, verify=False)
-	#print response
+	if response.status_code != 200:
+		print "Failure in fetching event model keys from vrni: " + response.reason
+		return
+
 	found_events = json.loads(response.content)
 	#print found_events
 	objRequests = list()
@@ -62,10 +70,13 @@ def getEvents(session):
 		mk = event['searchContext']['modelKey']
 		atTime = event['searchContext']['version']['lastModifiedTs']
 		objRequests.append({"modelKey":mk, "time":atTime})
-	#print requests
+
+	#Get event objects for mks received above
 	object_fetch_query = "/api/config/objects"
 	response = session.post(url+object_fetch_query, verify=False, data=json.dumps({"requests":objRequests}), headers={'content-type':'application/json', 'accept':'application/json'})
 	objectsResponse = json.loads(response.content)
+
+	#For all received objects, convert them to slack format and send it to slack
 	for data in objectsResponse['data']:
 		eventData = data['value']
 		eventName = eventData['name']
@@ -86,7 +97,7 @@ def getEvents(session):
 		finalobject = dict()
 		finalobject['blocks'] = blockslist
 		slacksession = requests.Session()
-		responseSlack = slacksession.post("https://hooks.slack.com/services/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", data=json.dumps(finalobject), verify=False,
+		responseSlack = slacksession.post(slackUrl, data=json.dumps(finalobject), verify=False,
 					 headers={'content-type': 'application/json', 'accept': 'application/json'})
 		print responseSlack
 
@@ -105,9 +116,13 @@ if __name__ == '__main__':
 					  dest="password",
 					  help="vRNI User's password")
 
+	parser.add_option("-s", "--slackurl",
+					  dest="slackurl",
+					  help="Slack webhook url for sending the messages")
+
 	(options, args) = parser.parse_args()
 
-	if options.server is None or options.uid is None or options.password is None:
+	if options.server is None or options.uid is None or options.password is None or options.slackurl is None:
 		parser.print_help()
 		print "Insufficient arguments"
 		sys.exit(1)
@@ -118,9 +133,11 @@ if __name__ == '__main__':
 	url = "https://" + options.server
 	user_id = options.uid
 	password = options.password
+	slackUrl = options.slackurl
 
 	session = open_vrni_session(url, user_id, password)
 	if not session:
 		print "Unable to connect to vRNI"
 		sys.exit(1)
-	getEvents(session)
+
+	sendEvents(session)
