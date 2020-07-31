@@ -84,11 +84,13 @@ def sendEvents(session, fromTime=None, toTime=None):
 		involvedEntities = ""
 		for aentity in eventData['anchorEntities']:
 			if aentity['name'] is not None:
-				involvedEntities += aentity['name'] + " "
+				involvedEntities += aentity['name'] + ", "
 		print "Event Info:", eventName, eventMessage, involvedEntities, "\n"
 		markdownObj = dict()
 		markdownObj['type'] = "mrkdwn"
-		markdownObj['text'] = "Event Info:" + eventName + "\n" + eventMessage + "\n" + involvedEntities
+		markdownObj['text'] = "Event Name: " + eventName + "\n" + "Message: " + eventMessage + "\n" + "Affected Entities: " + involvedEntities + "\n"
+		uiAccessURL = url + "#search/modelKeys/%5B%22" + urllib.quote_plus(eventData['modelKey']) + "%22%5D/ts/" + str(toTime)
+		markdownObj['text'] += "View in vRNI UI: " + uiAccessURL + "\n"
 		sectionObject = dict()
 		sectionObject["text"] = markdownObj
 		sectionObject["type"] = "section"
