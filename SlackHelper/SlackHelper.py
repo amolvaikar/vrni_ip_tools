@@ -55,7 +55,8 @@ def sendEvents(session, fromTime=None, toTime=None):
 		fromTime = toTime - (5 * 60 * 1000)
 
 	# Get events modelKey list of last 5 minutes
-	event_search_query = "/api/search/query?searchString=open+problems&timestamp=1596106948788&timeRangeString=+between+timestamp+" + str(fromTime) + "+and+timestamp+" + str(toTime) + \
+	event_search_query = "/api/search/query?searchString=" + urllib.quote_plus("open problems where timestampinms >= " + str(fromTime) + " and timestampinms <= " + str(toTime)) +\
+						 "&timestamp=1596106948788&timeRangeString=+between+timestamp+" + str(fromTime) + "+and+timestamp+" + str(toTime) + \
 						 "&includeObjects=false&includeFacets=false&includeMetrics=false&includeEvents=false&startIndex=0&maxItemCount=100&dateTimeZone=%2B05%3A30&sourceString=USER&includeModelKeyOnly=false&fetchQueryTelemetry=true&appDistributionEnabled=false&appletDistributionEnabled=false"
 
 	response = session.get(url + event_search_query, verify=False)
