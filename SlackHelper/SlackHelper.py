@@ -8,6 +8,7 @@ import urllib
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import time
+import re
 
 def check_options(options):
 	return True
@@ -82,6 +83,8 @@ def sendEvents(session, fromTime=None, toTime=None):
 		eventData = data['value']
 		eventName = eventData['name']
 		eventMessage = eventData['message']
+		eventMessage = re.sub(r"Reference{.*name=", "", eventMessage)
+		eventMessage = re.sub(r"}", "", eventMessage)
 		eventSeverity = eventData['eventSeverity']
 		involvedEntities = ""
 		for aentity in eventData['anchorEntities']:
