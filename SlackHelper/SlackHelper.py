@@ -82,6 +82,7 @@ def sendEvents(session, fromTime=None, toTime=None):
 		eventData = data['value']
 		eventName = eventData['name']
 		eventMessage = eventData['message']
+		eventSeverity = eventData['eventSeverity']
 		involvedEntities = ""
 		for aentity in eventData['anchorEntities']:
 			if aentity['name'] is not None:
@@ -89,9 +90,20 @@ def sendEvents(session, fromTime=None, toTime=None):
 		print "Event Info:", eventName, eventMessage, involvedEntities, "\n"
 		markdownObj = dict()
 		markdownObj['type'] = "mrkdwn"
-		markdownObj['text'] = "Event Name: " + eventName + "\n" + "Message: " + eventMessage + "\n" + "Affected Entities: " + involvedEntities + "\n"
+		markdownObj['text'] = "Event Name: *" + eventName + "*\n" + "Message: _" + eventMessage + "_\n" + "Affected Entities: " + involvedEntities + "\n"
+		useIcon = ""
+		if eventSeverity == "Critical":
+			useIcon = " :red_circle: :cold_sweat: <!here> "
+		elif eventSeverity == "Moderate":
+			useIcon = ":large_blue_circle:"
+		elif eventSeverity == "Warning":
+			useIcon = ":warning:"
+
+		markdownObj['text'] += "Event Severity: *" + eventSeverity + "*" + useIcon + "\n"
+
 		uiAccessURL = url + "#search/modelKeys/%5B%22" + urllib.quote_plus(eventData['modelKey']) + "%22%5D/ts/" + str(toTime)
 		markdownObj['text'] += "View in vRNI UI: " + uiAccessURL + "\n"
+		markdownObj['text'] += ":wavy_dash::wavy_dash::wavy_dash::wavy_dash::wavy_dash::wavy_dash::wavy_dash::wavy_dash:" + "\n"
 		sectionObject = dict()
 		sectionObject["text"] = markdownObj
 		sectionObject["type"] = "section"
