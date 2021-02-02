@@ -9,6 +9,15 @@ import urllib
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import time
+import smtplib, ssl
+
+sender = 'noreply@vmware.com'
+
+message = """From: vRNI Summary Ninja <noreply@vmware.com>
+To: vRNI Master <to@todomain.com>
+Subject: vRNI Daily Summary
+
+"""
 
 def open_vrni_session(url, user_id, password):
 	try:
@@ -96,9 +105,23 @@ def send_summary_email(session, target_email):
 		#todo: handle error
 		yesterdays_tx_bytes = int(found_metrics['aggregates2'][0]['aggs']['SUM'])
 
+		total_today =  todays_rx_bytes + todays_tx_bytes
+		total_yest = yesterdays_rx_bytes + yesterdays_tx_bytes
 
-		print found_metrics
-		#Total open problems in last 24 hours (up by or down by nn over previous day)
+		email_message = "Total Network Traffic (Read + Write) for today is: " + str((total_today)/(1024*1024*1024)) + " GB\n"
+		if (total_today > total_yest):
+			email_message += "Which is "  + str(total_today - total_yest) + " bytes more than yesterday's traffic\n\n"
+		else:
+			email_message += "Which is " + str(total_yest - total_today) + " bytes less than yesterday's traffic\n\n"
+
+		email_message += "To find more details about traffic patterns and problems, log on to " + url + "\n\nWith Best Regards,\nYour Friendly Neighborhood vRNI\n"
+
+		smtpObj = smtplib.SMTP('email-smtp.us-west-2.amazonaws.com', 587)
+		smtpObj.starttls()
+		smtpObj.login("AKIAJCQMNKULV43XLG6A", "Ajg+/jfsHwCL9W+GBmhrYII1/blbLyJxbFiKPl/wDgOG")
+		receivers = ['praving@vmware.com', 'avaikar@vmware.com']
+		smtpObj.sendmail(sender, receivers, message + email_message)
+	#Total open problems in last 24 hours (up by or down by nn over previous day)
 
 	except requests.exceptions.ConnectionError as connection_exception:
 		print "Failed to connect to " + url
