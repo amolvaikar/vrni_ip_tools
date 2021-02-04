@@ -1,2 +1,9 @@
 Small tools for leveraging vRNI capabilities for IPAM like solutions
 
+1. EmailSummarySender: Script to generate network and problems summary. Can be run via. cron at a 24 hr interval to get daily emails with summary
+
+2. FreeIPFinder: Looking for next free IP to use in your datacenter? Dont know which ones are used and which are free? This script will find those for you
+
+3. SlackHelper: Script to periodically pull events from vRNI and send them to slack. Run it in cron with whatever frequency you want.
+
+4. VmToVmPathsFinder: Giving demo to customers on their new setups and dont know which VM to VM paths will work? Use this script to find all demoable vm to vm paths.
