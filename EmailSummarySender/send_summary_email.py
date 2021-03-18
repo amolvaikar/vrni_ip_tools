@@ -92,7 +92,7 @@ def send_summary_email(session, options):
 
 		# Create message container - the correct MIME type is multipart/alternative.
 		msg = MIMEMultipart('alternative')
-		msg['Subject'] = "vRNI Network Summary"
+		msg['Subject'] = "vRNI Network Summary POC"
 		msg['From'] = sender
 		msg['To'] = options.target_email
 
