@@ -59,16 +59,16 @@ def send_summary_email(session, options):
 		email_message += get_problem_summary(session)
 
 		if options.email_server is None:
-			options.email_server = "email-smtp.us-west-2.amazonaws.com"
+			options.email_server = "get some server"
 
 		if options.email_server_login is None:
-			options.email_server_login = "AKIAJCQMNKULV43XLG6A"
+			options.email_server_login = "get an account"
 
 		if options.email_server_password is None:
-			options.email_server_password = "Ajg+/jfsHwCL9W+GBmhrYII1/blbLyJxbFiKPl/wDgOG"
+			options.email_server_password = "get a password"
 
 		if options.target_email is None:
-			options.target_email = "avaikar@vmware.com"
+			options.target_email = "some-email@vmware.com"
 
 		smtpObj = smtplib.SMTP(options.email_server, 587)
 		smtpObj.starttls()
