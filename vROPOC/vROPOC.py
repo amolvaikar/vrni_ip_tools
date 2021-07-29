@@ -80,7 +80,7 @@ def sendEvents(vrnisession, vrosession, fromTime=None, toTime=None):
 	if fromTime is None:
 		#if user has not given time, we will ask for events from last 5 minutes
 		toTime = int(round(time.time() * 1000))
-		fromTime = toTime - (69680 * 60 * 1000)
+		fromTime = toTime - (89680 * 60 * 1000)
 
 	# Get events modelKey list of last 5 minutes
 	event_search_query = "/api/search/query?searchString=" + urllib.quote_plus("open problems where Alert Name = 'link mtu mismatch alert' and timestampinms >= " + str(fromTime) + " and timestampinms <= " + str(toTime)) +\
