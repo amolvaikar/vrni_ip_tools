@@ -1,6 +1,8 @@
 import sys
 from optparse import OptionParser
 
+KEY_SEPERATOR = "#"
+
 DENY_FREQUENCY = "deny_frequency"
 
 ALLOW_FREQUENCY = "allow_frequency"
@@ -110,7 +112,7 @@ def parse_csv_and_generate_report(csv):
 
 			if firewall_action in ("0", "3"): # i.e. Flow is denied flow
 				# Find if there was a corresponding allowed flow for flipped source and destination
-				key = ":".join([dest_ip, source_ip, source_port])
+				key = KEY_SEPERATOR.join([dest_ip, source_ip, source_port])
 				if key in dict_allowed_flows:
 					# So we have a flow that was found to be allowed some time earlier and is now denied
 					record_flow_as_flip_flop_flow(key, firewall_action, firewall_rule_id, reporting_host)
@@ -118,7 +120,7 @@ def parse_csv_and_generate_report(csv):
 					record_flow_as_denied_flow(key, firewall_rule_id, reporting_host)
 			else:
 				#allowed flow, add it to the allowed flow dict
-				key = ":".join([source_ip, dest_ip, dest_port])
+				key = KEY_SEPERATOR.join([source_ip, dest_ip, dest_port])
 				if key in dict_denied_flows:
 					# We found a flow that was found to be denied some time earlier and has been allowed now
 					record_flow_as_flip_flop_flow(key, firewall_action, firewall_rule_id, reporting_host)
@@ -134,7 +136,7 @@ def print_summary():
 def print_detailed_report():
 	for key in dict_flip_flop_flow:
 		data_dict = dict_flip_flop_flow[key]
-		key_fields = key.split(":")
+		key_fields = key.split(KEY_SEPERATOR)
 
 		allowed_rules = ""
 		for allow_rule in data_dict[ALLOW_RULES]:
@@ -148,7 +150,7 @@ def print_detailed_report():
 		for host in data_dict[REPORTING_HOSTS]:
 			hosts += host
 
-		print ("\nSource IP: {}, Destination IP: {}, Destination Port: {}, Allow Rules: {}, Allow rules frequency: {}, Deny Rules: {}, Deny rules frequency: {}, Hosts: {}".format(key_fields[0],
+		print ("\nSource IP: {}, Destination IP: {}, Destination Port: {}, Forward connection allowed by rule id {}, Allow frequency: {}, Reverse connection denied by rule id: {}, Deny frequency: {}, Reported by Hosts: {}".format(key_fields[0],
 																																												   key_fields[1],
 																																												   key_fields[2],
 																																												   allowed_rules,
@@ -156,7 +158,7 @@ def print_detailed_report():
 																																												   denied_rules,
 																																												   data_dict[DENY_FREQUENCY],
 																																												   hosts))
-
+		#print (key_fields[1])
 	print("*"*20)
 	print_summary()
 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
 	detailed_report = False
 	if options.csv is None:
 		parser.print_help()
-		print "Insufficient arguments"
+		print ("Insufficient arguments")
 		sys.exit(1)
 	if options.detailed is not None:
 		detailed_report = True

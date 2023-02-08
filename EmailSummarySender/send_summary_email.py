@@ -46,8 +46,8 @@ def open_vrni_session(url, user_id, password):
 		session.headers["x-vrni-csrf-token"] = loaded_json["csrfToken"]
 		return session
 	except requests.exceptions.ConnectionError as connection_exception:
-		print "Failed to connect to " + url
-		print connection_exception.message
+		print ("Failed to connect to " + url)
+		print (connection_exception.message)
 	return None
 
 def current_milli_time():
@@ -70,8 +70,8 @@ def send_summary_email(session, options):
 		if options.target_email is None:
 			options.target_email = "some-email@vmware.com"
 
-		smtpObj = smtplib.SMTP(options.email_server, 587)
-		smtpObj.starttls()
+		smtpObj = smtplib.SMTP_SSL(options.email_server, 465)
+		#smtpObj.starttls()
 		smtpObj.login(options.email_server_login, options.email_server_password)
 		receivers = [options.target_email]
 		html = """\
@@ -106,8 +106,8 @@ def send_summary_email(session, options):
 	#Total open problems in last 24 hours (up by or down by nn over previous day)
 
 	except requests.exceptions.ConnectionError as connection_exception:
-		print "Failed to connect to " + url
-		print connection_exception.message
+		print ("Failed to connect to " + url)
+		print (connection_exception.message)
 		return None
 	return ""
 
@@ -121,7 +121,7 @@ same_day_last_week_timestamp_end = current_time_stamp - (6 * one_day_millisecond
 def get_problem_summary(session):
 	#Information to send:
 	# Total open problems in last 24 hours
-	open_problems_query = urllib.quote_plus("open problems")
+	open_problems_query = urllib.parse.quote_plus("open problems")
 	# Find todays total Rx
 	todays_time_range_string = "&timeRangeString= between timestamp " + str(
 		yesterday_time_stamp) + " and timestamp " + str(current_time_stamp)
@@ -161,7 +161,7 @@ def get_traffic_summary(session):
 	# Total traffic in last 24 hours, compared with previous day and same day last week
 	# &timestamp=1612265665538&timeRangeString=+between+timestamp+1612178885460+and+timestamp+1612265285460
 
-	rx_bytes_query = urllib.quote_plus("sum(total rx bytes) of switch ports")
+	rx_bytes_query = urllib.parse.quote_plus("sum(total rx bytes) of switch ports")
 	# Find todays total Rx
 	todays_time_range_string = "&timeRangeString= between timestamp " + str(
 		yesterday_time_stamp) + " and timestamp " + str(current_time_stamp)
@@ -179,7 +179,7 @@ def get_traffic_summary(session):
 	# todo: handle error
 	yesterdays_rx_bytes = int(found_metrics['aggregates2'][0]['aggs']['SUM'])
 	# Find todays total tx
-	tx_bytes_query = urllib.quote_plus("sum(total tx bytes) of switch ports")
+	tx_bytes_query = urllib.parse.quote_plus("sum(total tx bytes) of switch ports")
 	todays_tx_bytes_query_request = "/api/search/query?searchString=" + tx_bytes_query + todays_time_range_string
 	response = session.get(url + todays_tx_bytes_query_request, verify=False)
 	found_metrics = json.loads(response.content)
@@ -208,7 +208,7 @@ def get_traffic_summary(session):
 
 def check_options(options):
 	if options.target_email == "":
-		print "email id is mandatory"
+		print ("email id is mandatory")
 		return False
 	return True
 
@@ -246,7 +246,7 @@ if __name__ == '__main__':
 
 	if options.server is None or options.uid is None or options.password is None or options.target_email is None:
 		parser.print_help()
-		print "Insufficient arguments"
+		print ("Insufficient arguments")
 		sys.exit(1)
 
 	if not check_options(options):
@@ -257,7 +257,7 @@ if __name__ == '__main__':
 	password = options.password
 	session = open_vrni_session(url, user_id, password)
 	if not session:
-		print "Unable to connect to vRNI"
+		print ("Unable to connect to vRNI")
 		sys.exit(1)
 
 	send_summary_email(session, options)
