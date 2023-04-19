@@ -1,18 +1,10 @@
-from datetime import datetime
 import sys
 import requests
 import json
 from optparse import OptionParser
-import ipaddress
-import urllib
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-import time
-import smtplib, ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
-sender = 'noreply@vmware.com'
 
 def open_vrni_session(url, user_id, password):
 	try:
@@ -59,7 +51,7 @@ def create_changes_pinboard(session, pinboard_name = "Important Changes"):
 	# 4. Add pins for all the important flow
 	pinboard_id = create_pinboard(session, pinboard_name, "")
 	if pinboard_id:
-		for entity_type in ["NSX-T Transport Node", "Host"]:
+		for entity_type in ["NSX-T Transport Node", "Host", "NSX-T Edge Cluster", "NSX-T Layer2 Network", "VRF"]:
 			generate_crud_pinboards_for_entity_type(session, pinboard_id, entity_type)
 	return
 
@@ -100,6 +92,7 @@ def create_pinboard(session, pinboard_name, pinboard_description):
 		return loaded_json["id"]
 	print("Failed to create pinboard, please check if the pinboard already exists or if you have used admin/member login credentials")
 	return None
+
 def check_options(options):
 	return True
 
