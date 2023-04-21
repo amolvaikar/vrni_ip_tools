@@ -5,6 +5,7 @@ from optparse import OptionParser
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+#There is a limit of 20 pins at the moment
 
 def open_vrni_session(url, user_id, password):
 	try:
