@@ -53,6 +53,10 @@ def create_changes_pinboard(session, pinboard_name = "Important Changes"):
 	if pinboard_id:
 		for entity_type in ["NSX-T Transport Node", "Host", "NSX-T Edge Cluster", "NSX-T Layer2 Network", "VRF"]:
 			generate_crud_pinboards_for_entity_type(session, pinboard_id, entity_type)
+		generate_problem_alert_pinboard(session, pinboard_id)
+		generate_flows_pinboard(session, pinboard_id)
+		generate_topology_change_pinboard(session, pinboard_id)
+		generate_metrics_pinboard(session, pinboard_id)
 	return
 
 def generate_crud_pinboards_for_entity_type(session, pinboard_id, entity_type, create = True, update = True, delete = True):
@@ -77,13 +81,60 @@ def generate_crud_pinboards_for_entity_type(session, pinboard_id, entity_type, c
 		deletion_query = 'entity.name of change alert where message = \\"{}\\"'.format(deletion_alert_name)
 		add_pin_to_pinboard(session, pinboard_id, deletion_pinboard_name, deletion_query)
 
+def generate_problem_alert_pinboard(session, pinboard_id):
+	add_pin_to_pinboard(session, pinboard_id, "NSX-T related alerts", "open problem where Alert Tags =  'NSX-T' group by name, severity")
+
+def generate_flows_pinboard(session, pinboard_id):
+	# Daily flow count comparison, doesnt work for 6.6, but works 6.7 onwards.
+	# daily_flow_count_pin_query = "count of flows {} days ago"
+	# day_count = 5
+	# for x in range(day_count, 1, -1):
+	# 	add_pin_to_pinboard(session, pinboard_id, daily_flow_count_pin_query.format(x), daily_flow_count_pin_query.format(x))
+	# add_pin_to_pinboard(session, pinboard_id, "Todays Flows", "count of flows today")
+
+	services_accessed_query = """Flows where Flow Type = 'East-West' and Service Endpoint is set and Service Endpoint not in (list(Service Endpoint) of Flows where Flow Type = 'East-West' until 24 hours ago) group by Service Endpoint """
+	services_accessed_name = "New Internal Services accessed"
+	add_pin_to_pinboard(session, pinboard_id, services_accessed_name, services_accessed_query)
+
+def generate_topology_change_pinboard(session, pinboard_id):
+	topology_change_query = "change alert where message = 'Entity type VRF properties updated' and changedProperties.propertyPath in ('neighborVRFs', 'defaultNextHopRouterInterfaces')"
+	topology_change_name = 'Changes in L3 topology'
+	add_pin_to_pinboard(session, pinboard_id, topology_change_name, topology_change_query)
+
+def generate_metrics_pinboard(session, pinboard_id):
+	cpu_mem_tn_query = 'series(max(Memory Usage Rate)), series(max(cpu usage)) of NSX-T Transport Nodes group by name'
+	cpu_mem_tn_name = 'Memory and CPU usage for Transport Nodes'
+	add_pin_to_pinboard(session, pinboard_id, cpu_mem_tn_name, cpu_mem_tn_query)
+	cpu_mem_host_query = 'series(max(Memory Usage Rate)), series(max(cpu usage)) of host group by name'
+	cpu_mem_host_name = 'Memory & CPU usage for Hosts'
+	add_pin_to_pinboard(session, pinboard_id, cpu_mem_host_name, cpu_mem_host_query)
+
+	network_host_query = 'series(max(Max Packet Drop)), series(max(max network rate)) of hosts group by name'
+	network_host_name = 'Network Usage for Hosts'
+	add_pin_to_pinboard(session, pinboard_id, network_host_name, network_host_query)
+
+	iops_today = 'avg(RW IOPS) of Hosts today'
+	add_pin_to_pinboard(session, pinboard_id, iops_today, iops_today)
+	iops_yesterday = 'avg(RW IOPS) of Hosts yesterday'
+	add_pin_to_pinboard(session, pinboard_id, iops_yesterday, iops_yesterday)
+	iops_avg_till_3_days_ago = 'avg(RW IOPS) of Hosts until 3 days ago'
+	add_pin_to_pinboard(session, pinboard_id, iops_avg_till_3_days_ago, iops_avg_till_3_days_ago)
+
+	system_uptime_host = 'System Uptime of host in last 15 minutes'
+	add_pin_to_pinboard(session, pinboard_id, system_uptime_host, system_uptime_host)
+	system_uptime_tn = 'System Uptime of NSX-T Transport Nodes in last 15 minutes'
+	add_pin_to_pinboard(session, pinboard_id, system_uptime_tn, system_uptime_tn)
+
+
 def add_pin_to_pinboard(session, pinboard_id, pin_name, pin_query):
 	body = '''{{"name": "{0}", "query": "{1}"}}'''.format(pin_name, pin_query)
 	response = session.post(url+"/api/ni/pinboards/{}/pins".format(pinboard_id), data=body, verify=False)
+	if response.status_code != 201:
+		print("Failed to create pin for {}".format(pin_name))
 	loaded_json = json.loads(response.content)
 	return
 
-# returns the pinboard id if succcessful, None in case of failures.
+# returns the pinboard id if successful, None in case of failures.
 def create_pinboard(session, pinboard_name, pinboard_description):
 	body = '''{{"name": "{0}", "description": "{1}"}}'''.format(pinboard_name, pinboard_description)
 	response = session.post(url+"/api/ni/pinboards", data=body, verify=False)
