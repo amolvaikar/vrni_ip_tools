@@ -3,6 +3,7 @@ import requests
 import json
 from optparse import OptionParser
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def open_vrni_session(url, user_id, password):
