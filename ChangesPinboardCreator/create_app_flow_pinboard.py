@@ -52,15 +52,6 @@ def create_application_pinboard(session, pinboard_name, application_name):
 
 def generate_application_pinboards(session, pinboard_id, application_name):
         print("generate_application_pinboards")
-        # discovery_pinboard_name = "Total Application traffic"
-        # discovery_query = "sum(total traffic) of flow where Application = '{}'".format(application_name)
-        # print(discovery_query)
-        # add_pin_to_pinboard(session, pinboard_id, discovery_pinboard_name, discovery_query)
-
-        # discovery_pinboard_name = "Inter Application traffic"
-        # discovery_query = "sum(total traffic) of flow where source application = '{}' and destination application = '{}' group by Application".format(application_name, application_name)
-        # print(discovery_query)
-        # add_pin_to_pinboard(session, pinboard_id, discovery_pinboard_name, discovery_query)
 
         discovery_pinboard_name = "Outgoing traffic from Current App to any Dst App"
         discovery_query = "flow where source application = '{}' and destination application != '{}' group by destination application order by sum(total traffic)".format(application_name, application_name)
