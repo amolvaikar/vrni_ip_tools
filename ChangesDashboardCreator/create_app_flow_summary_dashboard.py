@@ -54,6 +54,47 @@ def create_application_dashboard(session, dashboard_name, application_name):
 def generate_flow_dashboards(session, dashboard_id, application_name):
     print("generate_application_flow_dashboards")
 
+    discovery_dashboard_name = "Metrics of overall packets for Application"
+    discovery_query = "net.totalTx.delta.summation.bytes, net.totalRx.delta.summation.bytes, net.tcpRetransmitedPackets.ratio.average.percent, net.avgFlowTcpRtt.absolute.average.microsecond of Application '{}'".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of overall Traffic Rate for Application"
+    discovery_query = "net.transmitted.rate.average.kiloBitsPerSecond, net.received.rate.average.kiloBitsPerSecond, net.usage.rate.average.kiloBitsPerSecond  of Application '{}'".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of Internet packets for Application"
+    discovery_query = "net.internetRx.delta.summation.bytes, net.internetTx.delta.summation.bytes of Application '{}'".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of overall Internet Traffic Rate for Application"
+    discovery_query = "net.transmittedToInternet.rate.average.kiloBitsPerSecond, net.receivedFromInternet.rate.average.kiloBitsPerSecond of Application '{}'".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of overall packets for Tier"
+    discovery_query = "net.totalTx.delta.summation.bytes, net.totalRx.delta.summation.bytes, net.tcpRetransmitedPackets.ratio.average.percent, net.avgFlowTcpRtt.absolute.average.microsecond of Tier in (Tier where application = '{}')'".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of overall Traffic Rate for Tier"
+    discovery_query = "net.transmitted.rate.average.kiloBitsPerSecond, net.received.rate.average.kiloBitsPerSecond  of Tier in (Tier where application = '{}')".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of Internet packets for Tier"
+    discovery_query = "net.internetRx.delta.summation.bytes, net.internetTx.delta.summation.bytes of Tier in (Tier where application = '{}')".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+    discovery_dashboard_name = "Metrics of overall Internet Traffic Rate for Application"
+    discovery_query = "net.transmittedToInternet.rate.average.kiloBitsPerSecond, net.receivedFromInternet.rate.average.kiloBitsPerSecond of Tier in (Tier where application = '{}')".format(application_name)
+    print(discovery_query)
+    add_pin_to_dashboard(session, dashboard_id, discovery_dashboard_name, discovery_query, "false", [])
+
+
     discovery_dashboard_name = "Outgoing traffic from Current App to any Dst App"
     discovery_query = "flow where source application = '{}' and destination application != '{}' group by destination application order by sum(total traffic)".format(application_name, application_name)
     print(discovery_query)
