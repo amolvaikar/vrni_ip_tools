@@ -88,7 +88,7 @@ def append_data_csv(setup_capacity_data_list):
         # Write the data to the CSV file
         writer.writerows(data_list)
 
-    print("Data has been exported to 'output.csv'")
+    print("Data has been exported to 'capacity.csv'")
 
 if __name__ == '__main__':
 
