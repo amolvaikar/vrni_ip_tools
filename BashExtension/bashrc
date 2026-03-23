@@ -1,0 +1,97 @@
+# ==============================================================================
+# LLM Auto-Troubleshooter for Bash
+# ==============================================================================
+
+# Enable extended debugging so we can intercept and cancel standard execution
+shopt -s extdebug
+
+__llm_troubleshoot() {
+    local cmd="$1"
+    local exit_status="$2"
+    local out_file="$3"
+    local err_file="$4"
+
+    echo -e "\n\e[1;33m[🤖 LLM is analyzing the error...]\e[0m"
+
+    # Safely build the prompt with jq to prevent quote/newline escaping issues
+    local prompt="The user ran the shell command: \`$cmd\`
+It failed with exit code: $exit_status.
+
+STDOUT:
+$(cat "$out_file")
+
+STDERR:
+$(cat "$err_file")
+
+Provide a very concise, practical explanation of what went wrong and the exact command to fix it. Keep it brief."
+
+    # Using Ollama as the local backend (Change this payload for OpenAI/others if needed)
+    local json_payload
+    json_payload=$(jq -n \
+        --arg prompt "$prompt" \
+        --arg model "tinyllama" \
+        '{model: $model, prompt: $prompt, stream: false}')
+
+    # Send request to local LLM API
+    local response
+    response=$(curl -s -X POST http://localhost:11434/api/generate \
+        -H "Content-Type: application/json" \
+        -d "$json_payload")
+
+    # Extract the response using jq
+    local llm_answer
+    llm_answer=$(echo "$response" | jq -r '.response // "Failed to get a response from LLM."')
+
+    echo -e "\e[1;32m$llm_answer\e[0m\n"
+}
+__llm_wrapper() {
+    # 1. Prevent interception in subshells or non-interactive context
+    if [[ $BASH_SUBSHELL -ne 0 ]]; then return 0; fi
+
+    local cmd="$BASH_COMMAND"
+
+    # 2. Prevent infinite recursion if we are already inside the wrapper
+    if [[ -n "$__IN_LLM_WRAPPER" ]]; then return 0; fi
+
+    # 3. Skip empty commands or internal Bash prompts/history updates
+    if [[ -z "$cmd" || "$cmd" == "PROMPT_COMMAND"* || "$cmd" == "history"* ]]; then return 0; fi
+
+    # 4. Exclude interactive/TUI commands (they break if captured via pipelines)
+    local first_word="${cmd%% *}"
+    case "$first_word" in
+        vi|vim|nvim|nano|emacs|top|htop|btop|less|more|man|ssh|tmux|screen|su|sudo|clear)
+            return 0 # Let bash handle it normally
+            ;;
+    esac
+
+    # Set lock to avoid recursive loops
+    export __IN_LLM_WRAPPER=1
+
+    # Create temporary files for stdout and stderr
+    local out_file=$(mktemp)
+    local err_file=$(mktemp)
+
+    # 5. Execute the command, printing to the terminal live while also capturing
+    eval "$cmd" > >(tee "$out_file") 2> >(tee "$err_file" >&2)
+    local exit_status=$?
+
+    # Give the async process substitutions (tee) a fraction of a second to flush
+    sleep 0.1
+
+    # 6. If it failed, send the context to the LLM
+    if [[ $exit_status -ne 0 ]]; then
+        __llm_troubleshoot "$cmd" "$exit_status" "$out_file" "$err_file"
+    fi
+
+    # Cleanup
+    rm -f "$out_file" "$err_file"
+    unset __IN_LLM_WRAPPER
+
+    # 7. Return 1 tells the extdebug trap to SKIP the original shell execution
+    # (since we just executed it ourselves in the eval)
+    return 1
+}
+
+# Attach the wrapper to the DEBUG signal
+trap '__llm_wrapper' DEBUG
+
