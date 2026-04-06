@@ -2,8 +2,18 @@
 # LLM Auto-Troubleshooter for Bash
 # ==============================================================================
 
-# Enable extended debugging so we can intercept and cancel standard execution
 shopt -s extdebug
+
+# Load Configuration
+LLM_CONFIG_PATH="$HOME/.llm_config"
+if [[ -f "$LLM_CONFIG_PATH" ]]; then
+    source "$LLM_CONFIG_PATH"
+fi
+
+# Set Defaults if not provided in .llm_config
+export LLM_PROVIDER="${LLM_PROVIDER:-ollama}"
+export LLM_MODEL="${LLM_MODEL:-tinyllama}"
+export LLM_OLLAMA_URL="${LLM_OLLAMA_URL:-http://localhost:11434/api/generate}"
 
 __llm_troubleshoot() {
     local cmd="$1"
@@ -11,87 +21,75 @@ __llm_troubleshoot() {
     local out_file="$3"
     local err_file="$4"
 
-    echo -e "\n\e[1;33m[🤖 LLM is analyzing the error...]\e[0m"
+    echo -e "\n\e[1;35m[🤖 LLM is analyzing the error using ${LLM_PROVIDER}...]\e[0m"
 
-    # Safely build the prompt with jq to prevent quote/newline escaping issues
-    local prompt="The user ran the shell command: \`$cmd\`
-It failed with exit code: $exit_status.
+    local prompt="The user ran: \`$cmd\` (Exit Code: $exit_status).
+STDOUT: $(cat "$out_file" | tail -c 1000)
+STDERR: $(cat "$err_file" | tail -c 1000)
+Explain the error and provide the fix command. Be extremely brief."
 
-STDOUT:
-$(cat "$out_file")
+    local response=""
+    local llm_answer=""
 
-STDERR:
-$(cat "$err_file")
-
-Provide a very concise, practical explanation of what went wrong and the exact command to fix it. Keep it brief."
-
-    # Using Ollama as the local backend (Change this payload for OpenAI/others if needed)
-    local json_payload
-    json_payload=$(jq -n \
-        --arg prompt "$prompt" \
-        --arg model "tinyllama" \
-        '{model: $model, prompt: $prompt, stream: false}')
-
-    # Send request to local LLM API
-    local response
-    response=$(curl -s -X POST http://localhost:11434/api/generate \
-        -H "Content-Type: application/json" \
-        -d "$json_payload")
-
-    # Extract the response using jq
-    local llm_answer
-    llm_answer=$(echo "$response" | jq -r '.response // "Failed to get a response from LLM."')
-
-    echo -e "\e[1;32m$llm_answer\e[0m\n"
-}
-__llm_wrapper() {
-    # 1. Prevent interception in subshells or non-interactive context
-    if [[ $BASH_SUBSHELL -ne 0 ]]; then return 0; fi
-
-    local cmd="$BASH_COMMAND"
-
-    # 2. Prevent infinite recursion if we are already inside the wrapper
-    if [[ -n "$__IN_LLM_WRAPPER" ]]; then return 0; fi
-
-    # 3. Skip empty commands or internal Bash prompts/history updates
-    if [[ -z "$cmd" || "$cmd" == "PROMPT_COMMAND"* || "$cmd" == "history"* ]]; then return 0; fi
-
-    # 4. Exclude interactive/TUI commands (they break if captured via pipelines)
-    local first_word="${cmd%% *}"
-    case "$first_word" in
-        vi|vim|nvim|nano|emacs|top|htop|btop|less|more|man|ssh|tmux|screen|su|sudo|clear)
-            return 0 # Let bash handle it normally
+    case "$LLM_PROVIDER" in
+        openai)
+            response=$(curl -s https://api.openai.com/v1/chat/completions \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $LLM_API_KEY" \
+                -d "$(jq -n --arg m "$LLM_MODEL" --arg p "$prompt" '{model: $m, messages: [{role: "user", content: $p}]}')")
+            llm_answer=$(echo "$response" | jq -r '.choices[0].message.content // "Error: Check API Key/Quota"')
+            ;;
+        anthropic)
+            response=$(curl -s https://api.anthropic.com/v1/messages \
+                -H "x-api-key: $LLM_API_KEY" \
+                -H "anthropic-version: 2023-06-01" \
+                -H "content-type: application/json" \
+                -d "$(jq -n --arg m "$LLM_MODEL" --arg p "$prompt" '{model: $m, max_tokens: 1024, messages: [{role: "user", content: $p}]}')")
+            llm_answer=$(echo "$response" | jq -r '.content[0].text // "Error: Check Anthropic Key"')
+            ;;
+        gemini)
+            response=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/${LLM_MODEL}:generateContent?key=${LLM_API_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "$(jq -n --arg p "$prompt" '{contents: [{parts: [{text: $p}]}]}')")
+            llm_answer=$(echo "$response" | jq -r '.candidates[0].content.parts[0].text // "Error: Check Gemini Key"')
+            ;;
+        *) # Default: Ollama
+            response=$(curl -s -X POST "$LLM_OLLAMA_URL" \
+                -d "$(jq -n --arg m "$LLM_MODEL" --arg p "$prompt" '{model: $m, prompt: $p, stream: false}')")
+            llm_answer=$(echo "$response" | jq -r '.response // "Ollama error: Is the service running?"')
             ;;
     esac
 
-    # Set lock to avoid recursive loops
-    export __IN_LLM_WRAPPER=1
+    echo -e "\e[1;32m$llm_answer\e[0m\n"
+}
 
-    # Create temporary files for stdout and stderr
+__llm_wrapper() {
+    if [[ $BASH_SUBSHELL -ne 0 || -n "$__IN_LLM_WRAPPER" ]]; then return 0; fi
+
+    local cmd="$BASH_COMMAND"
+    if [[ -z "$cmd" || "$cmd" == "PROMPT_COMMAND"* || "$cmd" == "history"* ]]; then return 0; fi
+
+    # Exclude UI/Interactive tools
+    local first_word="${cmd%% *}"
+    case "$first_word" in
+        vi|vim|nvim|nano|top|htop|ssh|tmux|screen|git|less|more|man|sudo|clear) return 0 ;;
+    esac
+
+    export __IN_LLM_WRAPPER=1
     local out_file=$(mktemp)
     local err_file=$(mktemp)
 
-    # 5. Execute the command, printing to the terminal live while also capturing
+    # Execute and capture
     eval "$cmd" > >(tee "$out_file") 2> >(tee "$err_file" >&2)
     local exit_status=$?
 
-    # Give the async process substitutions (tee) a fraction of a second to flush
-    sleep 0.1
-
-    # 6. If it failed, send the context to the LLM
     if [[ $exit_status -ne 0 ]]; then
         __llm_troubleshoot "$cmd" "$exit_status" "$out_file" "$err_file"
     fi
 
-    # Cleanup
     rm -f "$out_file" "$err_file"
     unset __IN_LLM_WRAPPER
-
-    # 7. Return 1 tells the extdebug trap to SKIP the original shell execution
-    # (since we just executed it ourselves in the eval)
-    return 1
+    return 1 # Skip original execution
 }
 
-# Attach the wrapper to the DEBUG signal
 trap '__llm_wrapper' DEBUG
-
